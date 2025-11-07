@@ -9,10 +9,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "./components/ui/select";
-import { DATASETS, type Dataset } from "./data";
+import { DATASETS } from "./data";
 
 export const ChartBuilder = () => {
-	const [datasetSelected, setDatasetSelected] = useState<Dataset | null>(null);
+	// const [datasetSelected, setDatasetSelected] = useState<Dataset | null>(null);
 	const [totalRows, setTotalRows] = useState(0);
 	const containerRef = useRef<HTMLDivElement>(null);
 
@@ -106,7 +106,8 @@ export const ChartBuilder = () => {
 	}, []);
 
 	const handleDatasetSelected = (value: string) => {
-		setDatasetSelected(value as Dataset);
+		// setDatasetSelected(value as Dataset);
+		console.log(value);
 	};
 
 	return (
