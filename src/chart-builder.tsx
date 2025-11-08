@@ -1,131 +1,122 @@
 import { useEffect, useRef, useState } from "react";
 import * as vg from "@uwdata/vgplot";
-import { makeClient } from "@uwdata/mosaic-core";
-import { count, Query } from "@uwdata/mosaic-sql";
+import type { Coordinator } from "@uwdata/mosaic-core";
 import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "./components/ui/select";
-import { DATASETS } from "./data";
+import { DATASETS, getDatasetUrl, type Dataset } from "./data";
 
-export const ChartBuilder = () => {
-	// const [datasetSelected, setDatasetSelected] = useState<Dataset | null>(null);
-	const [totalRows, setTotalRows] = useState(0);
-	const containerRef = useRef<HTMLDivElement>(null);
+export const ChartBuilder = ({ coordinator }: { coordinator: Coordinator }) => {
+  const [datasetSelected, setDatasetSelected] = useState<Dataset | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-	useEffect(() => {
-		const coordinator = vg.coordinator();
-		coordinator.databaseConnector(vg.wasmConnector());
+  useEffect(() => {
+    if (!datasetSelected) {
+      return;
+    }
 
-		coordinator.exec([
-			vg.loadCSV(
-				"weather",
-				"https://raw.githubusercontent.com/uwdata/mosaic/901e0da302bb3a009d463c959f09ddb17049ecc0/data/seattle-weather.csv",
-			),
-		]);
+    let chart: HTMLDivElement | null = null;
 
-		const $click = vg.Selection.single();
-		const $domain = vg.Param.array(["sun", "fog", "drizzle", "rain", "snow"]);
-		const $colors = vg.Param.array([
-			"#e7ba52",
-			"#a7a7a7",
-			"#aec7e8",
-			"#1f77b4",
-			"#9467bd",
-		]);
-		const $range = vg.Selection.intersect();
-		const chart = vg.vconcat(
-			vg.hconcat(
-				vg.plot(
-					vg.dot(vg.from("weather", { filterBy: $click }), {
-						x: vg.dateMonthDay("date"),
-						y: "temp_max",
-						fill: "weather",
-						r: "precipitation",
-						fillOpacity: 0.7,
-					}),
-					vg.intervalX({ as: $range, brush: { fill: "none", stroke: "#888" } }),
-					vg.highlight({ by: $range, fill: "#ccc", fillOpacity: 0.2 }),
-					vg.colorLegend({ as: $click, columns: 1 }),
-					vg.xyDomain(vg.Fixed),
-					vg.xTickFormat("%b"),
-					vg.colorDomain($domain),
-					vg.colorRange($colors),
-					vg.rDomain(vg.Fixed),
-					vg.rRange([2, 10]),
-					vg.width(680),
-					vg.height(300),
-				),
-			),
-			vg.plot(
-				vg.barX(vg.from("weather"), {
-					x: vg.count(),
-					y: "weather",
-					fill: "#ccc",
-					fillOpacity: 0.2,
-				}),
-				vg.barX(vg.from("weather", { filterBy: $range }), {
-					x: vg.count(),
-					y: "weather",
-					fill: "weather",
-				}),
-				vg.toggleY({ as: $click }),
-				vg.highlight({ by: $click }),
-				vg.xDomain(vg.Fixed),
-				vg.yDomain($domain),
-				vg.yLabel(null),
-				vg.colorDomain($domain),
-				vg.colorRange($colors),
-				vg.width(680),
-			),
-		);
+    if (datasetSelected === "Seattle Weather") {
+      const $click = vg.Selection.single();
+      const $domain = vg.Param.array(["sun", "fog", "drizzle", "rain", "snow"]);
+      const $colors = vg.Param.array([
+        "#e7ba52",
+        "#a7a7a7",
+        "#aec7e8",
+        "#1f77b4",
+        "#9467bd",
+      ]);
+      const $range = vg.Selection.intersect();
+      chart = vg.vconcat(
+        vg.hconcat(
+          vg.plot(
+            vg.dot(vg.from("weather", { filterBy: $click }), {
+              x: vg.dateMonthDay("date"),
+              y: "temp_max",
+              fill: "weather",
+              r: "precipitation",
+              fillOpacity: 0.7,
+            }),
+            vg.intervalX({
+              as: $range,
+              brush: { fill: "none", stroke: "#888" },
+            }),
+            vg.highlight({ by: $range, fill: "#ccc", fillOpacity: 0.2 }),
+            vg.colorLegend({ as: $click, columns: 1 }),
+            vg.xyDomain(vg.Fixed),
+            vg.xTickFormat("%b"),
+            vg.colorDomain($domain),
+            vg.colorRange($colors),
+            vg.rDomain(vg.Fixed),
+            vg.rRange([2, 10]),
+            vg.width(680),
+            vg.height(300),
+          ),
+        ),
+        vg.plot(
+          vg.barX(vg.from("weather"), {
+            x: vg.count(),
+            y: "weather",
+            fill: "#ccc",
+            fillOpacity: 0.2,
+          }),
+          vg.barX(vg.from("weather", { filterBy: $range }), {
+            x: vg.count(),
+            y: "weather",
+            fill: "weather",
+          }),
+          vg.toggleY({ as: $click }),
+          vg.highlight({ by: $click }),
+          vg.xDomain(vg.Fixed),
+          vg.yDomain($domain),
+          vg.yLabel(null),
+          vg.colorDomain($domain),
+          vg.colorRange($colors),
+          vg.width(680),
+        ),
+      );
+    }
 
-		if (containerRef.current) {
-			containerRef.current.innerHTML = "";
-			containerRef.current.appendChild(chart);
-		}
+    if (containerRef.current && chart) {
+      containerRef.current.innerHTML = "";
+      containerRef.current.appendChild(chart);
+    }
 
-		const client = makeClient({
-			coordinator,
-			// selection
-			prepare: async () => {
-				const result = await coordinator.query(
-					Query.from("weather").select({ count: count() }),
-				);
-				setTotalRows(result.get(0).count);
-			},
-		});
+    return () => {
+      chart?.remove();
+    };
+  }, [datasetSelected]);
 
-		return () => {
-			chart.remove();
-			client.destroy();
-		};
-	}, []);
+  const handleDatasetSelected = (value: string) => {
+    const dataset = value as Dataset;
+    setDatasetSelected(dataset);
 
-	const handleDatasetSelected = (value: string) => {
-		// setDatasetSelected(value as Dataset);
-		console.log(value);
-	};
+    if (dataset === "Seattle Weather") {
+      const datasetUrl = getDatasetUrl(dataset);
+      coordinator.exec([vg.loadCSV("weather", datasetUrl)]);
+    }
+  };
 
-	return (
-		<div>
-			<Select onValueChange={handleDatasetSelected}>
-				<SelectTrigger size="sm">
-					<SelectValue placeholder="Select a dataset" />
-				</SelectTrigger>
-				<SelectContent>
-					{DATASETS.map((dataset) => (
-						<SelectItem key={dataset} value={dataset}>
-							{dataset}
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
-			<div>Total rows: {totalRows}</div>
-			<div ref={containerRef} />
-		</div>
-	);
+  return (
+    <div className="flex flex-col gap-4">
+      <Select onValueChange={handleDatasetSelected}>
+        <SelectTrigger size="sm">
+          <SelectValue placeholder="Select a dataset" />
+        </SelectTrigger>
+        <SelectContent>
+          {DATASETS.map((dataset) => (
+            <SelectItem key={dataset} value={dataset}>
+              {dataset}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <div ref={containerRef} />
+    </div>
+  );
 };
