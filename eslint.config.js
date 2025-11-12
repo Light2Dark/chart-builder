@@ -22,4 +22,9 @@ export default defineConfig([
     },
   },
   reactYouMightNotNeedAnEffect.configs.recommended,
+  {
+    rules: {
+      "no-console": "error",
+    },
+  },
 ]);

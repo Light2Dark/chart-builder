@@ -1,4 +1,4 @@
-import { ChartBuilder } from "./chart-builder";
+import { ChartBuilder } from "./charts/chart-builder";
 import { DuckDBWASMConnector } from "@uwdata/mosaic-core";
 import { coordinator } from "@uwdata/vgplot";
 import { Logger } from "./utils/logger";

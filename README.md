@@ -9,3 +9,7 @@ Build charts on top of mosaic
 - Shadcn UI
 - Vite
 - ESLint
+
+## Attributions
+
+- Logo: <a href="https://www.flaticon.com/free-icons/pie-chart" title="pie chart icons">Pie chart icons created by Freepik - Flaticon</a>

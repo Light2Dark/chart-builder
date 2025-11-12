@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import {
   LogLevel,
   type Logger as DuckDBLogger,
