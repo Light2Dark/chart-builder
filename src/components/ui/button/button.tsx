@@ -25,3 +25,7 @@ export function Button({
     />
   );
 }
+
+export const SubmitButton = () => {
+  return <Button type="submit">Submit</Button>;
+};
