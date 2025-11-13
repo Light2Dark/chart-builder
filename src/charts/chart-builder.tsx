@@ -12,6 +12,7 @@ import {
   DATASETS,
   DatasetToTableName,
   getDatasetUrl,
+  queryTable,
   type Dataset,
 } from "./data";
 import {
@@ -42,7 +43,13 @@ const { useAppForm } = createFormHook({
 
 const NULL_VALUE = "";
 
-export const ChartBuilder = ({ coordinator }: { coordinator: Coordinator }) => {
+export const ChartBuilder = ({
+  coordinator,
+  duckdb,
+}: {
+  coordinator: Coordinator;
+  duckdb: vg.DuckDBWASMConnector;
+}) => {
   const [datasetSelected, setDatasetSelected] = useState<Dataset | null>(null);
 
   const formOpts = formOptions({
@@ -67,6 +74,9 @@ export const ChartBuilder = ({ coordinator }: { coordinator: Coordinator }) => {
       const datasetUrl = getDatasetUrl(dataset);
       const tableName = DatasetToTableName[dataset];
       coordinator.exec([vg.loadCSV(tableName, datasetUrl)]);
+      queryTable(duckdb, tableName).then((result) => {
+        Logger.info("Result", result);
+      });
     }
   };
 
