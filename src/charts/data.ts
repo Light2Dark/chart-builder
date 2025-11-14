@@ -18,11 +18,6 @@ export function getDatasetUrl(dataset: Dataset) {
   }
 }
 
-export const DatasetToTableName: Record<Dataset, string> = {
-  "Seattle Weather": "weather",
-  "Stock Prices": "stocks",
-};
-
 interface ColumnSummary {
   dataType: DataType;
   nullable: boolean;

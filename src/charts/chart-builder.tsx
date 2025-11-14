@@ -8,13 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-import {
-  DATASETS,
-  DatasetToTableName,
-  getDatasetUrl,
-  queryTable,
-  type Dataset,
-} from "./data";
+import { DATASETS, getDatasetUrl, queryTable, type Dataset } from "./data";
 import {
   createFormHook,
   createFormHookContexts,
@@ -35,6 +29,8 @@ import { useQuery } from "@tanstack/react-query";
 import { assertNever } from "@/utils/asserts";
 import { Spinner } from "@/components/ui/spinner";
 import { FieldTitle } from "./components";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button/button";
 
 const { fieldContext, formContext } = createFormHookContexts();
 
@@ -54,7 +50,15 @@ export const ChartBuilder = ({
   coordinator: Coordinator;
   duckdb: vg.DuckDBWASMConnector;
 }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [datasetSelected, setDatasetSelected] = useState<Dataset | null>(null);
+
+  const tableName = uploadedFile
+    ? formatTableName(uploadedFile.name)
+    : datasetSelected
+      ? formatTableName(datasetSelected)
+      : null;
 
   const formOpts = formOptions({
     defaultValues: defaultChartForm,
@@ -72,24 +76,43 @@ export const ChartBuilder = ({
   });
 
   const { isPending, error, data } = useQuery({
-    queryKey: ["dataset", datasetSelected],
+    queryKey: ["dataset", tableName],
     queryFn: async ({ queryKey }) => {
-      const dataset = queryKey[1] as Dataset | null;
-      if (!dataset) {
+      const tableName = queryKey[1] as string | null;
+      if (!tableName) {
         return null;
       }
-      const datasetUrl = getDatasetUrl(dataset);
-      const tableName = DatasetToTableName[dataset];
-      coordinator.exec([vg.loadCSV(tableName, datasetUrl)]);
-      return await queryTable(duckdb, tableName);
+      if (uploadedFile) {
+        // For uploaded files, we need to register the file in the DuckDB connection
+        const duckdbConn = await duckdb.getDuckDB();
+        const fileText = await uploadedFile.text();
+        const fileName = `uploaded_${uploadedFile.name}`;
+
+        duckdbConn.registerFileText(fileName, fileText);
+        coordinator.exec([vg.loadCSV(tableName, fileName)]);
+        return await queryTable(duckdb, tableName);
+      } else if (datasetSelected) {
+        const datasetUrl = getDatasetUrl(datasetSelected);
+        coordinator.exec([vg.loadCSV(tableName, datasetUrl)]);
+        return await queryTable(duckdb, tableName);
+      } else {
+        return null;
+      }
     },
     staleTime: Infinity,
-    enabled: !!datasetSelected,
+    enabled: !!tableName,
   });
 
   const handleDatasetSelected = (value: string) => {
     const dataset = value as Dataset;
     setDatasetSelected(dataset);
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setUploadedFile(file);
+    }
   };
 
   const formValues = useStore(form.store);
@@ -249,24 +272,54 @@ export const ChartBuilder = ({
 
   return (
     <div className="flex flex-col gap-4 items-center">
-      <Select onValueChange={handleDatasetSelected}>
-        <SelectTrigger size="sm">
-          <SelectValue placeholder="Select a dataset" />
-        </SelectTrigger>
-        <SelectContent>
-          {DATASETS.map((dataset) => (
-            <SelectItem key={dataset} value={dataset}>
-              {dataset}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="flex flex-row gap-2 items-center">
+        <Select onValueChange={handleDatasetSelected}>
+          <SelectTrigger size="sm">
+            <SelectValue placeholder="Select a dataset" />
+          </SelectTrigger>
+          <SelectContent>
+            {DATASETS.map((dataset) => (
+              <SelectItem key={dataset} value={dataset}>
+                {dataset}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-muted-foreground">or</p>
+        <div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            className="text-muted-foreground min-w-32"
+          >
+            {uploadedFile ? `Uploaded ${uploadedFile.name}` : "Upload CSV file"}
+          </Button>
+          {uploadedFile && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-1 h-6 px-2 text-muted-foreground"
+              onClick={() => setUploadedFile(null)}
+            >
+              x
+            </Button>
+          )}
+          <Input
+            type="file"
+            className="hidden"
+            accept=".csv"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+          />
+        </div>
+      </div>
 
-      {datasetSelected && (
+      {tableName && (
         <div className="flex flex-row gap-2">
           <div className="border-r px-2 w-64">{renderFormBuilder()}</div>
           <div className="px-2 w-[750px]">
-            <Chart dataset={datasetSelected} formValues={formValues.values} />
+            <Chart tableName={tableName} formValues={formValues.values} />
           </div>
         </div>
       )}
@@ -275,10 +328,10 @@ export const ChartBuilder = ({
 };
 
 const Chart = ({
-  dataset,
+  tableName,
   formValues,
 }: {
-  dataset: Dataset;
+  tableName: string;
   formValues: ChartForm;
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -292,7 +345,6 @@ const Chart = ({
     }
 
     try {
-      const tableName = DatasetToTableName[dataset];
       const args = [
         vg.from(tableName),
         {
@@ -323,7 +375,7 @@ const Chart = ({
     return () => {
       chart?.remove();
     };
-  }, [dataset, formValues]);
+  }, [tableName, formValues]);
 
   if (!isXAndYDefined) {
     return <EmptyChart message="Please select an X and Y axis" />;
@@ -340,3 +392,8 @@ const EmptyChart = ({ message }: { message: string }) => {
     </div>
   );
 };
+
+function formatTableName(fileName: string) {
+  // Remove any file extension and replace spaces with underscores
+  return fileName.split(".")[0].split(" ").join("_");
+}
