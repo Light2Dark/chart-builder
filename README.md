@@ -1,6 +1,8 @@
 # Chart Builder
 
-Build charts on top of mosaic
+Build charts on top of mosaic.
+
+Website is a prototype, does not have full functionality.
 
 ## Tech Stack
 
