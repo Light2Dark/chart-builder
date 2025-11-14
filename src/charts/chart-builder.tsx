@@ -30,7 +30,11 @@ import {
   TabsTrigger,
 } from "../components/ui/tabs";
 import { defaultChartForm, type ChartForm, type ChartType } from "./types";
-import { Logger, logNever } from "@/utils/logger";
+import { Logger } from "@/utils/logger";
+import { useQuery } from "@tanstack/react-query";
+import { assertNever } from "@/utils/asserts";
+import { Spinner } from "@/components/ui/spinner";
+import { FieldTitle } from "./components";
 
 const { fieldContext, formContext } = createFormHookContexts();
 
@@ -59,6 +63,7 @@ export const ChartBuilder = ({
         chartType: z.enum(["line", "bar"]),
         x: z.string().nullable(),
         y: z.string().nullable(),
+        colorBy: z.string().nullable(),
       }),
     },
   });
@@ -66,35 +71,48 @@ export const ChartBuilder = ({
     ...formOpts,
   });
 
-  const handleDatasetSelected = (value: string) => {
-    const dataset = value as Dataset;
-    setDatasetSelected(dataset);
-
-    if (dataset === "Seattle Weather") {
+  const { isPending, error, data } = useQuery({
+    queryKey: ["dataset", datasetSelected],
+    queryFn: async ({ queryKey }) => {
+      const dataset = queryKey[1] as Dataset | null;
+      if (!dataset) {
+        return null;
+      }
       const datasetUrl = getDatasetUrl(dataset);
       const tableName = DatasetToTableName[dataset];
       coordinator.exec([vg.loadCSV(tableName, datasetUrl)]);
-      queryTable(duckdb, tableName).then((result) => {
-        Logger.info("Result", result);
-      });
-    }
+      return await queryTable(duckdb, tableName);
+    },
+    staleTime: Infinity,
+    enabled: !!datasetSelected,
+  });
+
+  const handleDatasetSelected = (value: string) => {
+    const dataset = value as Dataset;
+    setDatasetSelected(dataset);
   };
 
   const formValues = useStore(form.store);
+  const sampleColumns = data?.columns ? Object.keys(data.columns) : [];
 
-  const sampleColumns = [
-    "date",
-    "precipitation",
-    "temp_max",
-    "temp_min",
-    "wind",
-    "weather",
-  ];
-
-  const formComponent = (
-    <div className="flex flex-row gap-2">
+  const renderFormBuilder = () => {
+    if (isPending) {
+      return (
+        <div className="flex flex-row items-center gap-2 justify-center h-full">
+          <Spinner size={24} />
+          <p className="text-lg">Loading...</p>
+        </div>
+      );
+    }
+    if (error) {
+      return <div>Error: {error.message}</div>;
+    }
+    if (!data) {
+      return <div>No data</div>;
+    }
+    return (
       <form
-        className="border-r px-2 w-64 text-xs"
+        className="text-xs"
         onSubmit={(e) => {
           e.preventDefault();
           form.handleSubmit();
@@ -134,7 +152,7 @@ export const ChartBuilder = ({
           </TabsList>
           <TabsContent value="data" className="flex flex-col gap-2">
             <div className="flex flex-col gap-1">
-              <h2>X axis</h2>
+              <FieldTitle name="X axis" />
               <form.AppField
                 name="x"
                 children={(field) => (
@@ -163,7 +181,7 @@ export const ChartBuilder = ({
               />
             </div>
             <div className="flex flex-col gap-1">
-              <h2>Y axis</h2>
+              <FieldTitle name="Y axis" />
               <form.AppField
                 name="y"
                 children={(field) => (
@@ -191,17 +209,43 @@ export const ChartBuilder = ({
                 )}
               />
             </div>
+            <div className="flex flex-col gap-1">
+              <FieldTitle name="Color by" />
+              <form.AppField
+                name="colorBy"
+                children={(field) => (
+                  <Select
+                    name="colorBy"
+                    value={
+                      field.state.value ??
+                      defaultChartForm.colorBy ??
+                      NULL_VALUE
+                    }
+                    onValueChange={(value) => field.handleChange(value)}
+                  >
+                    <SelectTrigger
+                      size="sm"
+                      className="w-full text-xs h-7! shadow-xs"
+                    >
+                      <SelectValue placeholder="Select a column" />
+                    </SelectTrigger>
+                    <SelectContent className="**:text-xs!">
+                      {sampleColumns.map((column) => (
+                        <SelectItem key={column} value={column}>
+                          {column}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
           </TabsContent>
-          <TabsContent value="style">Styling the chart</TabsContent>
+          <TabsContent value="style">Styling (not yet supported)</TabsContent>
         </Tabs>
       </form>
-      {datasetSelected && (
-        <div className="px-2 w-[750px]">
-          <Chart dataset={datasetSelected} formValues={formValues.values} />
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="flex flex-col gap-4 items-center">
@@ -218,7 +262,14 @@ export const ChartBuilder = ({
         </SelectContent>
       </Select>
 
-      {datasetSelected && formComponent}
+      {datasetSelected && (
+        <div className="flex flex-row gap-2">
+          <div className="border-r px-2 w-64">{renderFormBuilder()}</div>
+          <div className="px-2 w-[750px]">
+            <Chart dataset={datasetSelected} formValues={formValues.values} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -240,23 +291,28 @@ const Chart = ({
       return;
     }
 
-    if (dataset === "Seattle Weather") {
-      try {
-        const tableName = DatasetToTableName[dataset];
-        const args = [vg.from(tableName), { x: formValues.x, y: formValues.y }];
-        switch (formValues.chartType) {
-          case "bar":
-            chart = vg.plot(vg.barY(...args));
-            break;
-          case "line":
-            chart = vg.plot(vg.lineY(...args));
-            break;
-          default:
-            logNever(formValues.chartType);
-        }
-      } catch (error) {
-        Logger.error("Error rendering chart", error);
+    try {
+      const tableName = DatasetToTableName[dataset];
+      const args = [
+        vg.from(tableName),
+        {
+          x: formValues.x,
+          y: formValues.y,
+          fill: formValues.colorBy,
+        },
+      ];
+      switch (formValues.chartType) {
+        case "bar":
+          chart = vg.plot(vg.barY(...args));
+          break;
+        case "line":
+          chart = vg.plot(vg.lineY(...args));
+          break;
+        default:
+          assertNever(formValues.chartType);
       }
+    } catch (error) {
+      Logger.error("Error rendering chart", error);
     }
 
     if (chartContainerRef.current && chart) {
@@ -267,7 +323,7 @@ const Chart = ({
     return () => {
       chart?.remove();
     };
-  }, [dataset, formValues.chartType, formValues.x, formValues.y]);
+  }, [dataset, formValues]);
 
   if (!isXAndYDefined) {
     return <EmptyChart message="Please select an X and Y axis" />;

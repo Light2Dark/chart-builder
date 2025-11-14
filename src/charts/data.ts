@@ -171,6 +171,7 @@ type DuckDBTypes =
 /** We add "unknown" in case the type is not in the list */
 export type DataType = DuckDBTypes | "unknown";
 
+/** Utility functions to parse DESCRIBE result, see https://duckdb.org/docs/stable/guides/meta/describe */
 function isNullable(value: unknown): boolean {
   if (typeof value === "string" && value.toLowerCase() === "null") {
     return true;
