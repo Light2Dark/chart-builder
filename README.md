@@ -9,6 +9,7 @@ Build charts on top of mosaic
 - Shadcn UI
 - Vite
 - ESLint
+- TanStack Form, Query, and Devtools
 
 ## Attributions
 
