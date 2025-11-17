@@ -8,7 +8,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-import { DATASETS, getDatasetUrl, queryTable, type Dataset } from "./data";
+import {
+  DATASETS,
+  getDatasetUrl,
+  loadTable,
+  queryTable,
+  type Dataset,
+} from "./data";
 import {
   createFormHook,
   createFormHookContexts,
@@ -31,6 +37,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { FieldTitle } from "./components";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button/button";
+import { Textarea } from "@/components/ui/textarea";
 
 const { fieldContext, formContext } = createFormHookContexts();
 
@@ -42,6 +49,7 @@ const { useAppForm } = createFormHook({
 });
 
 const NULL_VALUE = "";
+const SUPPORTED_FILE_FORMATS = ".csv,.json,.parquet";
 
 export const ChartBuilder = ({
   coordinator,
@@ -53,12 +61,19 @@ export const ChartBuilder = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [datasetSelected, setDatasetSelected] = useState<Dataset | null>(null);
+  const [displayManualInput, setDisplayManualInput] = useState(false);
+  const [manualInput, setManualInput] = useState<string>("");
 
-  const tableName = uploadedFile
-    ? formatTableName(uploadedFile.name)
-    : datasetSelected
-      ? formatTableName(datasetSelected)
-      : null;
+  // Prioritize manual input, then uploaded file, then dataset.
+  const hasManualInput = displayManualInput && manualInput.trim() !== "";
+  let tableName = null;
+  if (hasManualInput) {
+    tableName = "manual_data";
+  } else if (uploadedFile) {
+    tableName = formatTableName(uploadedFile.name);
+  } else if (datasetSelected) {
+    tableName = formatTableName(datasetSelected);
+  }
 
   const formOpts = formOptions({
     defaultValues: defaultChartForm,
@@ -82,18 +97,20 @@ export const ChartBuilder = ({
       if (!tableName) {
         return null;
       }
-      if (uploadedFile) {
-        // For uploaded files, we need to register the file in the DuckDB connection
-        const duckdbConn = await duckdb.getDuckDB();
-        const fileText = await uploadedFile.text();
-        const fileName = `uploaded_${uploadedFile.name}`;
-
-        duckdbConn.registerFileText(fileName, fileText);
-        coordinator.exec([vg.loadCSV(tableName, fileName)]);
+      if (hasManualInput) {
+        await loadTable(
+          coordinator,
+          duckdb,
+          { data: JSON.parse(manualInput) },
+          tableName,
+        );
+        return await queryTable(duckdb, tableName);
+      } else if (uploadedFile) {
+        await loadTable(coordinator, duckdb, { file: uploadedFile }, tableName);
         return await queryTable(duckdb, tableName);
       } else if (datasetSelected) {
         const datasetUrl = getDatasetUrl(datasetSelected);
-        coordinator.exec([vg.loadCSV(tableName, datasetUrl)]);
+        await loadTable(coordinator, duckdb, { url: datasetUrl }, tableName);
         return await queryTable(duckdb, tableName);
       } else {
         return null;
@@ -112,6 +129,13 @@ export const ChartBuilder = ({
     const file = event.target.files?.[0];
     if (file) {
       setUploadedFile(file);
+    }
+  };
+
+  const handleFileClear = () => {
+    setUploadedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
@@ -270,49 +294,92 @@ export const ChartBuilder = ({
     );
   };
 
+  const showSelectDataset = !uploadedFile && !displayManualInput;
+  const showUploadFile = !displayManualInput;
+  const showEnterDataManually = displayManualInput;
+
   return (
     <div className="flex flex-col gap-4 items-center">
       <div className="flex flex-row gap-2 items-center">
-        <Select onValueChange={handleDatasetSelected}>
-          <SelectTrigger size="sm">
-            <SelectValue placeholder="Select a dataset" />
-          </SelectTrigger>
-          <SelectContent>
-            {DATASETS.map((dataset) => (
-              <SelectItem key={dataset} value={dataset}>
-                {dataset}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <p className="text-muted-foreground">or</p>
-        <div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-            className="text-muted-foreground min-w-32"
-          >
-            {uploadedFile ? `Uploaded ${uploadedFile.name}` : "Upload CSV file"}
-          </Button>
-          {uploadedFile && (
+        {showSelectDataset && (
+          <>
+            <Select onValueChange={handleDatasetSelected}>
+              <SelectTrigger size="sm">
+                <SelectValue placeholder="Select a dataset" />
+              </SelectTrigger>
+              <SelectContent>
+                {DATASETS.map((dataset) => (
+                  <SelectItem key={dataset} value={dataset}>
+                    {dataset}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-muted-foreground">or</p>
+          </>
+        )}
+        {showUploadFile && (
+          <div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              className="text-muted-foreground min-w-32"
+            >
+              {uploadedFile ? `Uploaded ${uploadedFile.name}` : "Upload a file"}
+            </Button>
+            {uploadedFile && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-1 h-6 px-2 text-muted-foreground"
+                onClick={handleFileClear}
+              >
+                Clear
+              </Button>
+            )}
+            <Input
+              type="file"
+              className="hidden"
+              accept={SUPPORTED_FILE_FORMATS}
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+            />
+          </div>
+        )}
+
+        {!showEnterDataManually && (
+          <>
+            <p className="text-muted-foreground">or</p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-muted-foreground min-w-32"
+              onClick={() => setDisplayManualInput(!displayManualInput)}
+            >
+              Enter data manually
+            </Button>
+          </>
+        )}
+        {showEnterDataManually && (
+          <>
+            <Textarea
+              placeholder="Enter array of objects (e.g. [{x: 1, y: 2}, {x: 2, y: 3}])"
+              value={manualInput}
+              onChange={(e) => setManualInput(e.target.value)}
+            />
             <Button
               variant="ghost"
-              size="sm"
-              className="ml-1 h-6 px-2 text-muted-foreground"
-              onClick={() => setUploadedFile(null)}
+              className="text-muted-foreground"
+              onClick={() => {
+                setManualInput("");
+                setDisplayManualInput(false);
+              }}
             >
-              x
+              Clear
             </Button>
-          )}
-          <Input
-            type="file"
-            className="hidden"
-            accept=".csv"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-          />
-        </div>
+          </>
+        )}
       </div>
 
       {tableName && (
@@ -345,20 +412,18 @@ const Chart = ({
     }
 
     try {
-      const args = [
-        vg.from(tableName),
-        {
-          x: formValues.x,
-          y: formValues.y,
-          fill: formValues.colorBy,
-        },
-      ];
+      const axisValues: Record<string, unknown> = {
+        x: formValues.x,
+        y: formValues.y,
+      };
+      const args = [vg.from(tableName)];
       switch (formValues.chartType) {
         case "bar":
-          chart = vg.plot(vg.barY(...args));
+          axisValues.fill = "steelblue";
+          chart = vg.plot(vg.barY(...args, axisValues));
           break;
         case "line":
-          chart = vg.plot(vg.lineY(...args));
+          chart = vg.plot(vg.lineY(...args, axisValues));
           break;
         default:
           assertNever(formValues.chartType);

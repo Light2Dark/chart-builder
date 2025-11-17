@@ -1,6 +1,7 @@
-import type { DuckDBWASMConnector } from "@uwdata/mosaic-core";
+import type { Coordinator, DuckDBWASMConnector } from "@uwdata/mosaic-core";
 import { assertNever } from "../utils/asserts";
 import { Logger } from "@/utils/logger";
+import { loadCSV, loadParquet, loadJSON, loadObjects } from "@uwdata/vgplot";
 
 const SAMPLE_VALUES_SIZE = 5;
 
@@ -51,12 +52,12 @@ export async function queryTable(
      */
     const describe = await duckdb.query({
       type: "arrow",
-      sql: `DESCRIBE ${tableName}`,
+      sql: `DESCRIBE "${tableName}"`,
     });
 
     const sampleValues = await duckdb.query({
       type: "arrow",
-      sql: `SELECT * FROM ${tableName} USING SAMPLE ${sampleValuesSize}`,
+      sql: `SELECT * FROM "${tableName}" USING SAMPLE ${sampleValuesSize}`,
     });
 
     const columns: Record<string, ColumnSummary> = describe
@@ -81,6 +82,53 @@ export async function queryTable(
   } catch (error) {
     Logger.error("Error querying table", error);
     return null;
+  }
+}
+
+/**
+ * Load a table into mosaic
+ * @param coordinator - The coordinator instance.
+ * @param duckdb - The DuckDB instance.
+ * @param data - The data to load.
+ * @param tableName - The name of the table to load.
+ */
+export async function loadTable(
+  coordinator: Coordinator,
+  duckdb: DuckDBWASMConnector,
+  data: { file: File } | { url: string } | { data: Record<string, unknown>[] },
+  tableName: string,
+) {
+  if ("data" in data) {
+    loadObjects(tableName, data.data);
+    return;
+  }
+
+  const fileName = "file" in data ? data.file.name : data.url;
+  const fileExtension = fileName.split(".").at(-1);
+  const fileNameToLoad =
+    "file" in data ? `uploaded_${data.file.name}` : data.url;
+
+  if ("file" in data) {
+    const duckdbInstance = await duckdb.getDuckDB();
+    const fileBuffer = await data.file.arrayBuffer();
+    duckdbInstance.registerFileBuffer(
+      fileNameToLoad,
+      new Uint8Array(fileBuffer),
+    );
+  }
+
+  switch (fileExtension) {
+    case "csv":
+      coordinator.exec([loadCSV(`"${tableName}"`, fileNameToLoad)]);
+      break;
+    case "parquet":
+      coordinator.exec([loadParquet(`"${tableName}"`, fileNameToLoad)]);
+      break;
+    case "json":
+      coordinator.exec([loadJSON(`"${tableName}"`, fileNameToLoad)]);
+      break;
+    default:
+      throw new Error(`Unsupported file extension: ${fileExtension}`);
   }
 }
 
