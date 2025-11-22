@@ -5,6 +5,7 @@ import { Logger } from "./utils/logger";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import React from "react";
+import { Analytics } from "@vercel/analytics/react";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +60,7 @@ function App() {
           />
         </div>
       </div>
+      <Analytics />
     </QueryClientProvider>
   );
 }

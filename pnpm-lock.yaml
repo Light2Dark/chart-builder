@@ -46,6 +46,9 @@ importers:
       "@uwdata/vgplot":
         specifier: ^0.21.1
         version: 0.21.1
+      "@vercel/analytics":
+        specifier: ^1.5.0
+        version: 1.5.0(react@19.2.0)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -1474,6 +1477,35 @@ packages:
       {
         integrity: sha512-R+CFYeTPdNoMzMAxNwt7coTqcWWY6aOKUj28SqkQ4dbL3Ig37RjCnRDcpFzCqvxaSeOwZRXQ1Ld3WhnagqDh/Q==,
       }
+
+  "@vercel/analytics@1.5.0":
+    resolution:
+      {
+        integrity: sha512-MYsBzfPki4gthY5HnYN7jgInhAZ7Ac1cYDoRWFomwGHWEX7odTEzbtg9kf/QSo7XEsEAqlQugA6gJ2WS2DEa3g==,
+      }
+    peerDependencies:
+      "@remix-run/react": ^2
+      "@sveltejs/kit": ^1 || ^2
+      next: ">= 13"
+      react: ^18 || ^19 || ^19.0.0-rc
+      svelte: ">= 4"
+      vue: ^3
+      vue-router: ^4
+    peerDependenciesMeta:
+      "@remix-run/react":
+        optional: true
+      "@sveltejs/kit":
+        optional: true
+      next:
+        optional: true
+      react:
+        optional: true
+      svelte:
+        optional: true
+      vue:
+        optional: true
+      vue-router:
+        optional: true
 
   "@vitejs/plugin-react@5.1.1":
     resolution:
@@ -4224,6 +4256,10 @@ snapshots:
       "@uwdata/mosaic-inputs": 0.21.1
       "@uwdata/mosaic-plot": 0.21.1
       "@uwdata/mosaic-sql": 0.21.1
+
+  "@vercel/analytics@1.5.0(react@19.2.0)":
+    optionalDependencies:
+      react: 19.2.0
 
   "@vitejs/plugin-react@5.1.1(rolldown-vite@7.2.1(@types/node@24.10.1)(jiti@2.6.1)(yaml@2.8.1))":
     dependencies:
