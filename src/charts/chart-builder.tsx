@@ -4,7 +4,9 @@ import type { Coordinator } from "@uwdata/mosaic-core";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
@@ -22,7 +24,7 @@ import {
   useStore,
 } from "@tanstack/react-form";
 import { z } from "zod";
-import { BarChart, ChartPie, LineChart } from "lucide-react";
+import { ChartPie } from "lucide-react";
 import {
   Tabs,
   TabsContent,
@@ -30,11 +32,17 @@ import {
   TabsTrigger,
 } from "../components/ui/tabs";
 import { defaultChartForm, type ChartForm, type ChartType } from "./types";
-import { Logger } from "@/utils/logger";
+import { Logger, logNever } from "@/utils/logger";
 import { useQuery } from "@tanstack/react-query";
-import { assertNever } from "@/utils/asserts";
 import { Spinner } from "@/components/ui/spinner";
-import { ErrorState, FieldTitle, NoDataState } from "./components";
+import {
+  ChartTypeItem,
+  ChartTypeSelectValue,
+  ClearButton,
+  ErrorState,
+  FieldTitle,
+  NoDataState,
+} from "./components";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -193,19 +201,34 @@ export const ChartBuilder = ({
             >
               <SelectTrigger
                 size="sm"
-                className="border-0 h-6! rounded-none w-full text-xs! ring-0 shadow-none"
+                className="h-6! w-full text-xs! border-none shadow-none"
               >
-                <SelectValue placeholder="Chart type" />
+                <SelectValue placeholder="Chart type">
+                  <ChartTypeSelectValue value={field.state.value} />
+                </SelectValue>
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="line" className="text-xs!">
-                  <LineChart className="size-4" />
-                  Line
-                </SelectItem>
-                <SelectItem value="bar" className="text-xs!">
-                  <BarChart className="size-4" />
-                  Bar
-                </SelectItem>
+              <SelectContent className="p-3 text-xs w-md h-[450px]">
+                <div className="flex flex-col gap-5">
+                  <SelectGroup>
+                    <SelectLabel className="font-bold text-muted-foreground">
+                      COLUMN
+                    </SelectLabel>
+                    <div className="flex flex-row gap-2">
+                      <ChartTypeItem value="grouped-column" />
+                      <ChartTypeItem value="stacked-column" disabled />
+                      <ChartTypeItem value="100-stacked-column" disabled />
+                    </div>
+                  </SelectGroup>
+
+                  <SelectGroup>
+                    <SelectLabel className="font-bold text-muted-foreground">
+                      LINE & AREA
+                    </SelectLabel>
+                    <div className="flex flex-row gap-2">
+                      <ChartTypeItem value="line" />
+                    </div>
+                  </SelectGroup>
+                </div>
               </SelectContent>
             </Select>
           )}
@@ -345,20 +368,13 @@ export const ChartBuilder = ({
               </SelectContent>
             </Select>
             {datasetSelected && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-muted-foreground"
-                onClick={() => setDatasetSelected(null)}
-              >
-                Clear
-              </Button>
+              <ClearButton onClick={() => setDatasetSelected(null)} />
             )}
             {!datasetSelected && <p className="text-muted-foreground">or</p>}
           </>
         )}
         {showUploadFile && (
-          <div>
+          <>
             <Button
               variant="outline"
               size="sm"
@@ -367,16 +383,7 @@ export const ChartBuilder = ({
             >
               {uploadedFile ? `Uploaded ${uploadedFile.name}` : "Upload a file"}
             </Button>
-            {uploadedFile && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="ml-1 h-6 px-2 text-muted-foreground"
-                onClick={handleFileClear}
-              >
-                Clear
-              </Button>
-            )}
+            {uploadedFile && <ClearButton onClick={handleFileClear} />}
             <Input
               type="file"
               className="hidden"
@@ -384,7 +391,7 @@ export const ChartBuilder = ({
               ref={fileInputRef}
               onChange={handleFileUpload}
             />
-          </div>
+          </>
         )}
 
         {showManualInput && !displayExpandedManualInput && (
@@ -411,16 +418,12 @@ export const ChartBuilder = ({
               onChange={(e) => setManualInput(e.target.value)}
               className="max-h-48 w-[400px] font-mono! text-xs!"
             />
-            <Button
-              variant="ghost"
-              className="text-muted-foreground"
+            <ClearButton
               onClick={() => {
                 setManualInput("");
                 setDisplayExpandedManualInput(false);
               }}
-            >
-              Clear
-            </Button>
+            />
           </>
         )}
       </div>
@@ -477,14 +480,21 @@ const Chart = ({
       const args = [vg.from(tableName)];
       switch (formValues.chartType) {
         case "bar":
+        case "grouped-column":
           axisValues.fill = "steelblue";
           chart = vg.plot(vg.barY(...args, axisValues));
           break;
         case "line":
           chart = vg.plot(vg.lineY(...args, axisValues));
           break;
+        case "stacked-column":
+          // chart = vg.plot(vg.stackedColumnY(...args, axisValues));
+          break;
+        case "100-stacked-column":
+          // chart = vg.plot(vg.grouped100ColumnY(...args, axisValues));
+          break;
         default:
-          assertNever(formValues.chartType);
+          logNever(formValues.chartType);
       }
     } catch (error) {
       Logger.error("Error rendering chart", error);

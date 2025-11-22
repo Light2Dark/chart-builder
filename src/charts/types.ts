@@ -1,4 +1,9 @@
-export type ChartType = "line" | "bar";
+export type ChartType =
+  | "line"
+  | "bar"
+  | "grouped-column"
+  | "stacked-column"
+  | "100-stacked-column";
 
 export interface ChartForm {
   chartType: ChartType;
