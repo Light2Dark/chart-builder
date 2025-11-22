@@ -34,10 +34,11 @@ import { Logger } from "@/utils/logger";
 import { useQuery } from "@tanstack/react-query";
 import { assertNever } from "@/utils/asserts";
 import { Spinner } from "@/components/ui/spinner";
-import { FieldTitle } from "./components";
+import { ErrorState, FieldTitle, NoDataState } from "./components";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 const { fieldContext, formContext } = createFormHookContexts();
 
@@ -61,13 +62,19 @@ export const ChartBuilder = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [datasetSelected, setDatasetSelected] = useState<Dataset | null>(null);
-  const [displayManualInput, setDisplayManualInput] = useState(false);
+  const [displayExpandedManualInput, setDisplayExpandedManualInput] =
+    useState(false);
   const [manualInput, setManualInput] = useState<string>("");
+  const [remoteUrl, setRemoteUrl] = useState<string>("");
 
-  // Prioritize manual input, then uploaded file, then dataset.
-  const hasManualInput = displayManualInput && manualInput.trim() !== "";
+  // Prioritize remote URL, then manual input, then uploaded file, then dataset.
+  const hasRemoteUrl = remoteUrl.trim() !== "";
+  const hasManualInput =
+    displayExpandedManualInput && manualInput.trim() !== "";
   let tableName = null;
-  if (hasManualInput) {
+  if (hasRemoteUrl) {
+    tableName = formatTableName(remoteUrl);
+  } else if (hasManualInput) {
     tableName = "manual_data";
   } else if (uploadedFile) {
     tableName = formatTableName(uploadedFile.name);
@@ -91,13 +98,16 @@ export const ChartBuilder = ({
   });
 
   const { isPending, error, data } = useQuery({
-    queryKey: ["dataset", tableName, manualInput],
+    queryKey: ["dataset", tableName, manualInput, remoteUrl],
     queryFn: async ({ queryKey }) => {
       const tableName = queryKey[1] as string | null;
       if (!tableName) {
         return null;
       }
-      if (hasManualInput) {
+      if (hasRemoteUrl) {
+        await loadTable(coordinator, duckdb, { url: remoteUrl }, tableName);
+        return await queryTable(duckdb, tableName);
+      } else if (hasManualInput) {
         await loadTable(
           coordinator,
           duckdb,
@@ -121,12 +131,18 @@ export const ChartBuilder = ({
     retry: false,
   });
 
+  const resetFormValues = () => {
+    form.reset();
+  };
+
   const handleDatasetSelected = (value: string) => {
+    resetFormValues();
     const dataset = value as Dataset;
     setDatasetSelected(dataset);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    resetFormValues();
     const file = event.target.files?.[0];
     if (file) {
       setUploadedFile(file);
@@ -134,6 +150,7 @@ export const ChartBuilder = ({
   };
 
   const handleFileClear = () => {
+    resetFormValues();
     setUploadedFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -153,10 +170,10 @@ export const ChartBuilder = ({
       );
     }
     if (error) {
-      return <div>Error: {error.message}</div>;
+      return <ErrorState message={error.message} />;
     }
     if (!data) {
-      return <div>No data</div>;
+      return <NoDataState />;
     }
     return (
       <form
@@ -172,7 +189,7 @@ export const ChartBuilder = ({
             <Select
               name="chartType"
               onValueChange={(value) => field.handleChange(value as ChartType)}
-              defaultValue={defaultChartForm.chartType}
+              value={field.state.value ?? defaultChartForm.chartType}
             >
               <SelectTrigger
                 size="sm"
@@ -295,16 +312,27 @@ export const ChartBuilder = ({
     );
   };
 
-  const showSelectDataset = !uploadedFile && !displayManualInput;
-  const showUploadFile = !displayManualInput;
-  const showEnterDataManually = displayManualInput;
+  const showSelectDataset =
+    !uploadedFile && !displayExpandedManualInput && !hasRemoteUrl;
+
+  const showUploadFile =
+    !datasetSelected && !displayExpandedManualInput && !hasRemoteUrl;
+
+  const showManualInput = !datasetSelected && !uploadedFile && !hasRemoteUrl;
+  const showExpandedManualInput = showManualInput && displayExpandedManualInput;
+
+  const showRemoteDataset =
+    !uploadedFile && !displayExpandedManualInput && !datasetSelected;
 
   return (
     <div className="flex flex-col gap-4 items-center">
       <div className="flex flex-row gap-2 items-center">
         {showSelectDataset && (
           <>
-            <Select onValueChange={handleDatasetSelected}>
+            <Select
+              onValueChange={handleDatasetSelected}
+              value={datasetSelected ?? NULL_VALUE}
+            >
               <SelectTrigger size="sm">
                 <SelectValue placeholder="Select a dataset" />
               </SelectTrigger>
@@ -316,7 +344,17 @@ export const ChartBuilder = ({
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-muted-foreground">or</p>
+            {datasetSelected && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-muted-foreground"
+                onClick={() => setDatasetSelected(null)}
+              >
+                Clear
+              </Button>
+            )}
+            {!datasetSelected && <p className="text-muted-foreground">or</p>}
           </>
         )}
         {showUploadFile && (
@@ -349,33 +387,36 @@ export const ChartBuilder = ({
           </div>
         )}
 
-        {!showEnterDataManually && (
+        {showManualInput && !displayExpandedManualInput && (
           <>
             <p className="text-muted-foreground">or</p>
             <Button
               variant="outline"
               size="sm"
               className="text-muted-foreground min-w-32"
-              onClick={() => setDisplayManualInput(!displayManualInput)}
+              onClick={() =>
+                setDisplayExpandedManualInput(!displayExpandedManualInput)
+              }
             >
               Enter data manually
             </Button>
           </>
         )}
-        {showEnterDataManually && (
+        {showExpandedManualInput && (
           <>
             <Textarea
+              name="manualInput"
               placeholder="Enter array of objects (e.g. [{x: 1, y: 2}, {x: 2, y: 3}])"
               value={manualInput}
               onChange={(e) => setManualInput(e.target.value)}
-              className="max-h-48 w-[450px]"
+              className="max-h-48 w-[400px] font-mono! text-xs!"
             />
             <Button
               variant="ghost"
               className="text-muted-foreground"
               onClick={() => {
                 setManualInput("");
-                setDisplayManualInput(false);
+                setDisplayExpandedManualInput(false);
               }}
             >
               Clear
@@ -383,6 +424,21 @@ export const ChartBuilder = ({
           </>
         )}
       </div>
+
+      {showRemoteDataset && (
+        <div className="flex flex-row gap-2">
+          <Label htmlFor="remoteUrl">Remote dataset</Label>
+          <Input
+            id="remoteUrl"
+            type="text"
+            value={remoteUrl}
+            onChange={(e) => setRemoteUrl(e.target.value)}
+            className="w-96 text-sm!"
+            placeholder="URL with .csv, .parquet, or .json"
+            pattern="https?://.*\.(csv|parquet|json)"
+          />
+        </div>
+      )}
 
       {tableName && (
         <div className="flex flex-row gap-2">
