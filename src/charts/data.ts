@@ -2,6 +2,7 @@ import type { Coordinator, DuckDBWASMConnector } from "@uwdata/mosaic-core";
 import { assertNever } from "../utils/asserts";
 import { Logger } from "@/utils/logger";
 import { loadCSV, loadParquet, loadJSON, loadObjects } from "@uwdata/vgplot";
+import type { CreateTableOptions } from "node_modules/@uwdata/mosaic-sql/dist/src/load/create";
 
 const SAMPLE_VALUES_SIZE = 5;
 
@@ -98,8 +99,14 @@ export async function loadTable(
   data: { file: File } | { url: string } | { data: Record<string, unknown>[] },
   tableName: string,
 ) {
+  const options: CreateTableOptions = {
+    replace: true,
+  };
+
   if ("data" in data) {
-    loadObjects(tableName, data.data);
+    coordinator.exec([
+      loadObjects(tableName, data.data, options as Record<string, unknown>),
+    ]);
     return;
   }
 
@@ -119,13 +126,31 @@ export async function loadTable(
 
   switch (fileExtension) {
     case "csv":
-      coordinator.exec([loadCSV(`"${tableName}"`, fileNameToLoad)]);
+      coordinator.exec([
+        loadCSV(
+          `"${tableName}"`,
+          fileNameToLoad,
+          options as Record<string, unknown>,
+        ),
+      ]);
       break;
     case "parquet":
-      coordinator.exec([loadParquet(`"${tableName}"`, fileNameToLoad)]);
+      coordinator.exec([
+        loadParquet(
+          `"${tableName}"`,
+          fileNameToLoad,
+          options as Record<string, unknown>,
+        ),
+      ]);
       break;
     case "json":
-      coordinator.exec([loadJSON(`"${tableName}"`, fileNameToLoad)]);
+      coordinator.exec([
+        loadJSON(
+          `"${tableName}"`,
+          fileNameToLoad,
+          options as Record<string, unknown>,
+        ),
+      ]);
       break;
     default:
       throw new Error(`Unsupported file extension: ${fileExtension}`);

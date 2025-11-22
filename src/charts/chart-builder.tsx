@@ -91,7 +91,7 @@ export const ChartBuilder = ({
   });
 
   const { isPending, error, data } = useQuery({
-    queryKey: ["dataset", tableName],
+    queryKey: ["dataset", tableName, manualInput],
     queryFn: async ({ queryKey }) => {
       const tableName = queryKey[1] as string | null;
       if (!tableName) {
@@ -118,6 +118,7 @@ export const ChartBuilder = ({
     },
     staleTime: Infinity,
     enabled: !!tableName,
+    retry: false,
   });
 
   const handleDatasetSelected = (value: string) => {
@@ -367,6 +368,7 @@ export const ChartBuilder = ({
               placeholder="Enter array of objects (e.g. [{x: 1, y: 2}, {x: 2, y: 3}])"
               value={manualInput}
               onChange={(e) => setManualInput(e.target.value)}
+              className="max-h-48 w-[450px]"
             />
             <Button
               variant="ghost"
