@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import * as vg from "@uwdata/vgplot";
+import type { DuckDBWASMConnector } from "@uwdata/mosaic-core";
 import type { Coordinator } from "@uwdata/mosaic-core";
 import {
   Select,
@@ -7,6 +7,7 @@ import {
   SelectGroup,
   SelectItem,
   SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
@@ -32,7 +33,7 @@ import {
   TabsTrigger,
 } from "../components/ui/tabs";
 import { defaultChartForm, type ChartForm, type ChartType } from "./types";
-import { Logger, logNever } from "@/utils/logger";
+import { Logger } from "@/utils/logger";
 import { useQuery } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -47,6 +48,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { COUNT_FIELD, NULL_VALUE, specChart } from "./spec";
 
 const { fieldContext, formContext } = createFormHookContexts();
 
@@ -57,7 +59,6 @@ const { useAppForm } = createFormHook({
   formContext,
 });
 
-const NULL_VALUE = "";
 const SUPPORTED_FILE_FORMATS = ".csv,.json,.parquet";
 
 export const ChartBuilder = ({
@@ -65,7 +66,7 @@ export const ChartBuilder = ({
   duckdb,
 }: {
   coordinator: Coordinator;
-  duckdb: vg.DuckDBWASMConnector;
+  duckdb: DuckDBWASMConnector;
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -166,7 +167,7 @@ export const ChartBuilder = ({
   };
 
   const formValues = useStore(form.store);
-  const sampleColumns = data?.columns ? Object.keys(data.columns) : [];
+  const columns = data?.columns ? Object.keys(data.columns) : [];
 
   const renderFormBuilder = () => {
     if (isPending) {
@@ -201,7 +202,7 @@ export const ChartBuilder = ({
             >
               <SelectTrigger
                 size="sm"
-                className="h-6! w-full text-xs! border-none shadow-none"
+                className="h-6.5! w-full text-xs! border-none rounded-sm shadow-none hover:bg-muted transition-colors"
               >
                 <SelectValue placeholder="Chart type">
                   <ChartTypeSelectValue value={field.state.value} />
@@ -258,7 +259,7 @@ export const ChartBuilder = ({
                       <SelectValue placeholder="Select a column" />
                     </SelectTrigger>
                     <SelectContent className="**:text-xs!">
-                      {sampleColumns.map((column) => (
+                      {columns.map((column) => (
                         <SelectItem key={column} value={column}>
                           {column}
                         </SelectItem>
@@ -287,7 +288,11 @@ export const ChartBuilder = ({
                       <SelectValue placeholder="Select a column" />
                     </SelectTrigger>
                     <SelectContent className="**:text-xs!">
-                      {sampleColumns.map((column) => (
+                      <SelectItem value={COUNT_FIELD}>
+                        Count of Records
+                      </SelectItem>
+                      <SelectSeparator />
+                      {columns.map((column) => (
                         <SelectItem key={column} value={column}>
                           {column}
                         </SelectItem>
@@ -297,7 +302,7 @@ export const ChartBuilder = ({
                 )}
               />
             </div>
-            <div className="flex flex-col gap-1">
+            {/* <div className="flex flex-col gap-1">
               <FieldTitle name="Color by" />
               <form.AppField
                 name="colorBy"
@@ -318,7 +323,7 @@ export const ChartBuilder = ({
                       <SelectValue placeholder="Select a column" />
                     </SelectTrigger>
                     <SelectContent className="**:text-xs!">
-                      {sampleColumns.map((column) => (
+                      {columns.map((column) => (
                         <SelectItem key={column} value={column}>
                           {column}
                         </SelectItem>
@@ -327,7 +332,7 @@ export const ChartBuilder = ({
                   </Select>
                 )}
               />
-            </div>
+            </div> */}
           </TabsContent>
           <TabsContent value="style">Styling (not yet supported)</TabsContent>
         </Tabs>
@@ -473,29 +478,7 @@ const Chart = ({
     }
 
     try {
-      const axisValues: Record<string, unknown> = {
-        x: formValues.x,
-        y: formValues.y,
-      };
-      const args = [vg.from(tableName)];
-      switch (formValues.chartType) {
-        case "bar":
-        case "grouped-column":
-          axisValues.fill = "steelblue";
-          chart = vg.plot(vg.barY(...args, axisValues));
-          break;
-        case "line":
-          chart = vg.plot(vg.lineY(...args, axisValues));
-          break;
-        case "stacked-column":
-          // chart = vg.plot(vg.stackedColumnY(...args, axisValues));
-          break;
-        case "100-stacked-column":
-          // chart = vg.plot(vg.grouped100ColumnY(...args, axisValues));
-          break;
-        default:
-          logNever(formValues.chartType);
-      }
+      chart = specChart(formValues, tableName);
     } catch (error) {
       Logger.error("Error rendering chart", error);
     }

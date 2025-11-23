@@ -27,7 +27,12 @@ function App() {
   }, []);
 
   Logger.debug("App initialized");
-  const duckdbWasmConnector = new DuckDBWASMConnector();
+  const duckdbWasmConnector = new DuckDBWASMConnector({
+    // config: {
+    //   path: "chart-builder-db",
+    //   accessMode: DuckDBAccessMode.READ_WRITE,
+    // },
+  });
   const vgCoordinator = coordinator();
   vgCoordinator.databaseConnector(duckdbWasmConnector);
   Logger.debug("VG Coordinator initialized with DuckDB WASM Connector");

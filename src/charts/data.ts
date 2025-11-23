@@ -6,7 +6,7 @@ import type { CreateTableOptions } from "node_modules/@uwdata/mosaic-sql/dist/sr
 
 const SAMPLE_VALUES_SIZE = 5;
 
-export const DATASETS = ["Seattle Weather", "Stock Prices"] as const;
+export const DATASETS = ["Seattle Weather", "Stock Prices", "Pokemon"] as const;
 export type Dataset = (typeof DATASETS)[number];
 
 export function getDatasetUrl(dataset: Dataset) {
@@ -15,6 +15,8 @@ export function getDatasetUrl(dataset: Dataset) {
       return "https://raw.githubusercontent.com/uwdata/mosaic/901e0da302bb3a009d463c959f09ddb17049ecc0/data/seattle-weather.csv";
     case "Stock Prices":
       return "https://raw.githubusercontent.com/uwdata/mosaic/901e0da302bb3a009d463c959f09ddb17049ecc0/data/stocks.csv";
+    case "Pokemon":
+      return "https://gist.githubusercontent.com/armgilles/194bcff35001e7eb53a2a8b441e8b2c6/raw/92200bc0a673d5ce2110aaad4544ed6c4010f687/pokemon.csv";
     default:
       assertNever(dataset);
   }
