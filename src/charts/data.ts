@@ -45,10 +45,10 @@ interface ColumnSummary {
   comment?: string;
 }
 
-interface TableSummary {
+export interface TableSummary {
   name: string;
   numRows?: number;
-  columns: Record<string, ColumnSummary>;
+  columns: Map<string, ColumnSummary>;
 }
 
 export async function queryTable(
@@ -75,10 +75,10 @@ export async function queryTable(
       sql: `SELECT * FROM "${tableName}" USING SAMPLE ${sampleValuesSize}`,
     });
 
-    const columns: Record<string, ColumnSummary> = describe
+    const columns = describe
       .toArray()
-      .reduce((acc, row) => {
-        acc[row.column_name] = {
+      .reduce<Map<string, ColumnSummary>>((acc, row) => {
+        acc.set(row.column_name, {
           dataType: String(row.column_type).toLowerCase() as DataType,
           sampleValues: sampleValues.toColumns()[row.column_name] as unknown[],
           nullable: isNullable(row.null),
@@ -86,9 +86,9 @@ export async function queryTable(
           isForeignKey: isForeignKey(row.key),
           defaultValue: row.default,
           comment: row.extra ? String(row.extra) : undefined,
-        };
+        });
         return acc;
-      }, {});
+      }, new Map());
     const tableSummary: TableSummary = {
       name: tableName,
       columns,
@@ -169,6 +169,31 @@ export async function loadTable(
     default:
       throw new Error(`Unsupported file extension: ${fileExtension}`);
   }
+}
+
+/** Utility functions to parse DESCRIBE result, see https://duckdb.org/docs/stable/guides/meta/describe */
+function isNullable(value: unknown): boolean {
+  if (typeof value === "string" && value.toLowerCase() === "null") {
+    return true;
+  }
+  if (value === null || value === undefined) {
+    return true;
+  }
+  return false;
+}
+
+function isPrimaryKey(value: unknown): boolean {
+  if (typeof value === "string" && value.toLowerCase().includes("pri")) {
+    return true;
+  }
+  return false;
+}
+
+function isForeignKey(value: unknown): boolean {
+  if (typeof value === "string" && value.toLowerCase().includes("for")) {
+    return true;
+  }
+  return false;
 }
 
 /** Taken from codemirror-sql. Run SELECT * FROM DUCKDB_TYPES() to see all types.
@@ -309,9 +334,9 @@ export function getDataTypeMetadata(dataType: DataType): {
     case "logical":
       return { Icon: ToggleLeft, color: "bg-orange-200" };
     case "date":
-      return { Icon: CalendarIcon, color: "bg-green-200" };
+      return { Icon: CalendarIcon, color: "bg-green-100" };
     case "datetime":
-      return { Icon: CalendarClockIcon, color: "bg-green-200" };
+      return { Icon: CalendarClockIcon, color: "bg-green-100" };
     case "time":
     case "timestamp":
     case "timestamp_ms":
@@ -320,7 +345,7 @@ export function getDataTypeMetadata(dataType: DataType): {
     case "timestamp_us":
     case "timestamptz":
     case "timetz":
-      return { Icon: ClockIcon, color: "bg-green-200" };
+      return { Icon: ClockIcon, color: "bg-green-100" };
     case "list":
     case "union":
     case "enum":
@@ -348,27 +373,92 @@ export function getDataTypeMetadata(dataType: DataType): {
   }
 }
 
-/** Utility functions to parse DESCRIBE result, see https://duckdb.org/docs/stable/guides/meta/describe */
-function isNullable(value: unknown): boolean {
-  if (typeof value === "string" && value.toLowerCase() === "null") {
-    return true;
+export function getSimplifiedDataType(
+  dataType: DataType,
+): "temporal" | "quantitative" | "ordinal" | "nominal" | "unknown" {
+  switch (dataType) {
+    case "string":
+    case "varchar":
+    case "char":
+    case "bpchar":
+    case "nvarchar":
+    case "uuid":
+    case "text":
+    case "oid":
+      return "nominal";
+    case "float":
+    case "float4":
+    case "float8":
+    case "double":
+    case "decimal":
+    case "numeric":
+    case "real":
+    case "bigint":
+    case "int128":
+    case "int16":
+    case "int2":
+    case "int32":
+    case "int4":
+    case "int64":
+    case "int8":
+    case "integer":
+    case "integral":
+    case "int":
+    case "int1":
+    case "uint128":
+    case "uint16":
+    case "uint32":
+    case "uint64":
+    case "uint8":
+    case "tinyint":
+    case "ubigint":
+    case "uhugeint":
+    case "uinteger":
+    case "usmallint":
+    case "utinyint":
+    case "varint":
+    case "hugeint":
+    case "long":
+    case "smallint":
+    case "signed":
+    case "short":
+      return "quantitative";
+    case "boolean":
+    case "bool":
+    case "logical":
+      return "ordinal";
+    case "date":
+    case "datetime":
+    case "time":
+    case "timestamp":
+    case "timestamp_ms":
+    case "timestamp_ns":
+    case "timestamp_s":
+    case "timestamp_us":
+    case "timestamptz":
+    case "timetz":
+      return "temporal";
+    case "json":
+    case "binary":
+    case "varbinary":
+    case "bit":
+    case "bitstring":
+    case "blob":
+    case "bytea":
+    case "dec":
+    case "guid":
+    case "interval":
+    case "map":
+    case "row":
+    case "struct":
+    case "unknown":
+    case "list":
+    case "union":
+    case "enum":
+    case "null":
+      return "unknown";
+    default:
+      logNever(dataType);
+      return "unknown";
   }
-  if (value === null || value === undefined) {
-    return true;
-  }
-  return false;
-}
-
-function isPrimaryKey(value: unknown): boolean {
-  if (typeof value === "string" && value.toLowerCase().includes("pri")) {
-    return true;
-  }
-  return false;
-}
-
-function isForeignKey(value: unknown): boolean {
-  if (typeof value === "string" && value.toLowerCase().includes("for")) {
-    return true;
-  }
-  return false;
 }

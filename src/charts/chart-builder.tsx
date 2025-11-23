@@ -17,6 +17,7 @@ import {
   loadTable,
   queryTable,
   type Dataset,
+  type TableSummary,
 } from "./data";
 import {
   createFormHook,
@@ -50,7 +51,6 @@ import { Button } from "@/components/ui/button/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { COUNT_FIELD, NULL_VALUE, specChart } from "./spec";
-import { cn } from "@/lib/utils";
 
 const { fieldContext, formContext } = createFormHookContexts();
 
@@ -169,7 +169,7 @@ export const ChartBuilder = ({
   };
 
   const formValues = useStore(form.store);
-  const columns = data?.columns ? Object.keys(data.columns) : [];
+  const columns = data?.columns ? [...data.columns.keys()] : [];
 
   const renderFormBuilder = () => {
     if (isPending) {
@@ -265,7 +265,9 @@ export const ChartBuilder = ({
                         <ColumnSelectItem
                           key={column}
                           column={column}
-                          dataType={data.columns[column].dataType}
+                          dataType={
+                            data.columns.get(column)?.dataType ?? "unknown"
+                          }
                         />
                       ))}
                     </SelectContent>
@@ -302,7 +304,9 @@ export const ChartBuilder = ({
                         <ColumnSelectItem
                           key={column}
                           column={column}
-                          dataType={data.columns[column].dataType}
+                          dataType={
+                            data.columns.get(column)?.dataType ?? "unknown"
+                          }
                         />
                       ))}
                     </SelectContent>
@@ -460,7 +464,13 @@ export const ChartBuilder = ({
         <div className="flex flex-row gap-2">
           <div className="border-r px-2 w-64">{renderFormBuilder()}</div>
           <div className="px-2 w-[750px]">
-            <Chart tableName={tableName} formValues={formValues.values} />
+            {data && (
+              <Chart
+                tableName={tableName}
+                formValues={formValues.values}
+                data={data}
+              />
+            )}
           </div>
         </div>
       )}
@@ -471,9 +481,11 @@ export const ChartBuilder = ({
 const Chart = ({
   tableName,
   formValues,
+  data,
 }: {
   tableName: string;
   formValues: ChartForm;
+  data: TableSummary;
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const isXAndYDefined = formValues.x && formValues.y;
@@ -486,7 +498,7 @@ const Chart = ({
     }
 
     try {
-      chart = specChart(formValues, tableName);
+      chart = specChart(formValues, tableName, data);
     } catch (error) {
       Logger.error("Error rendering chart", error);
     }
@@ -499,7 +511,7 @@ const Chart = ({
     return () => {
       chart?.remove();
     };
-  }, [tableName, formValues]);
+  }, [tableName, formValues, data]);
 
   if (!isXAndYDefined) {
     return <EmptyChart message="Please select an X and Y axis" />;
