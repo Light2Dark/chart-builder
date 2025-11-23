@@ -1,8 +1,20 @@
 import type { Coordinator, DuckDBWASMConnector } from "@uwdata/mosaic-core";
 import { assertNever } from "../utils/asserts";
-import { Logger } from "@/utils/logger";
+import { Logger, logNever } from "@/utils/logger";
 import { loadCSV, loadParquet, loadJSON, loadObjects } from "@uwdata/vgplot";
 import type { CreateTableOptions } from "node_modules/@uwdata/mosaic-sql/dist/src/load/create";
+import {
+  BracketsIcon,
+  CalendarClockIcon,
+  CalendarIcon,
+  CircleOffIcon,
+  ClockIcon,
+  CurlyBraces,
+  HashIcon,
+  ToggleLeft,
+  TypeIcon,
+  type LucideIcon,
+} from "lucide-react";
 
 const SAMPLE_VALUES_SIZE = 5;
 
@@ -240,6 +252,101 @@ type DuckDBTypes =
 
 /** We add "unknown" in case the type is not in the list */
 export type DataType = DuckDBTypes | "unknown";
+
+export function getDataTypeMetadata(dataType: DataType): {
+  Icon: LucideIcon;
+  color: string;
+} {
+  switch (dataType) {
+    case "string":
+    case "varchar":
+    case "char":
+    case "bpchar":
+    case "nvarchar":
+    case "uuid":
+    case "text":
+    case "oid":
+      return { Icon: TypeIcon, color: "bg-blue-200" };
+    case "float":
+    case "float4":
+    case "float8":
+    case "double":
+    case "decimal":
+    case "numeric":
+    case "real":
+    case "bigint":
+    case "int128":
+    case "int16":
+    case "int2":
+    case "int32":
+    case "int4":
+    case "int64":
+    case "int8":
+    case "integer":
+    case "integral":
+    case "int":
+    case "int1":
+    case "uint128":
+    case "uint16":
+    case "uint32":
+    case "uint64":
+    case "uint8":
+    case "tinyint":
+    case "ubigint":
+    case "uhugeint":
+    case "uinteger":
+    case "usmallint":
+    case "utinyint":
+    case "varint":
+    case "hugeint":
+    case "long":
+    case "smallint":
+    case "signed":
+    case "short":
+      return { Icon: HashIcon, color: "bg-purple-200" };
+    case "boolean":
+    case "bool":
+    case "logical":
+      return { Icon: ToggleLeft, color: "bg-orange-200" };
+    case "date":
+      return { Icon: CalendarIcon, color: "bg-green-200" };
+    case "datetime":
+      return { Icon: CalendarClockIcon, color: "bg-green-200" };
+    case "time":
+    case "timestamp":
+    case "timestamp_ms":
+    case "timestamp_ns":
+    case "timestamp_s":
+    case "timestamp_us":
+    case "timestamptz":
+    case "timetz":
+      return { Icon: ClockIcon, color: "bg-green-200" };
+    case "list":
+    case "union":
+    case "enum":
+      return { Icon: BracketsIcon, color: "bg-slate-400" };
+    case "json":
+    case "binary":
+    case "varbinary":
+    case "bit":
+    case "bitstring":
+    case "blob":
+    case "bytea":
+    case "dec":
+    case "guid":
+    case "interval":
+    case "map":
+    case "row":
+    case "struct":
+    case "unknown":
+      return { Icon: CurlyBraces, color: "bg-slate-400" };
+    case "null":
+      return { Icon: CircleOffIcon, color: "bg-slate-400" };
+    default:
+      logNever(dataType);
+      return { Icon: CurlyBraces, color: "bg-slate-400" };
+  }
+}
 
 /** Utility functions to parse DESCRIBE result, see https://duckdb.org/docs/stable/guides/meta/describe */
 function isNullable(value: unknown): boolean {

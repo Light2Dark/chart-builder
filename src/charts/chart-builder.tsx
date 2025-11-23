@@ -40,6 +40,7 @@ import {
   ChartTypeItem,
   ChartTypeSelectValue,
   ClearButton,
+  ColumnSelectItem,
   ErrorState,
   FieldTitle,
   NoDataState,
@@ -49,6 +50,7 @@ import { Button } from "@/components/ui/button/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { COUNT_FIELD, NULL_VALUE, specChart } from "./spec";
+import { cn } from "@/lib/utils";
 
 const { fieldContext, formContext } = createFormHookContexts();
 
@@ -260,9 +262,11 @@ export const ChartBuilder = ({
                     </SelectTrigger>
                     <SelectContent className="**:text-xs!">
                       {columns.map((column) => (
-                        <SelectItem key={column} value={column}>
-                          {column}
-                        </SelectItem>
+                        <ColumnSelectItem
+                          key={column}
+                          column={column}
+                          dataType={data.columns[column].dataType}
+                        />
                       ))}
                     </SelectContent>
                   </Select>
@@ -288,14 +292,18 @@ export const ChartBuilder = ({
                       <SelectValue placeholder="Select a column" />
                     </SelectTrigger>
                     <SelectContent className="**:text-xs!">
-                      <SelectItem value={COUNT_FIELD}>
-                        Count of Records
-                      </SelectItem>
+                      <ColumnSelectItem
+                        column={COUNT_FIELD}
+                        label="Count of Records"
+                        dataType={"numeric"}
+                      />
                       <SelectSeparator />
                       {columns.map((column) => (
-                        <SelectItem key={column} value={column}>
-                          {column}
-                        </SelectItem>
+                        <ColumnSelectItem
+                          key={column}
+                          column={column}
+                          dataType={data.columns[column].dataType}
+                        />
                       ))}
                     </SelectContent>
                   </Select>

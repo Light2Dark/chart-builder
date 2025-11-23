@@ -6,6 +6,8 @@ import groupedColumnImage from "@/assets/charts/grouped_column.svg";
 import lineImage from "@/assets/charts/line.svg";
 import groupedHundredImage from "@/assets/charts/grouped_100_column.svg";
 import stackedColumnImage from "@/assets/charts/stacked_column.svg";
+import { getDataTypeMetadata, type DataType } from "./data";
+import { cn } from "@/lib/utils";
 
 export const FieldTitle = ({ name }: { name: string }) => {
   return <h2 className="font-medium">{name}</h2>;
@@ -92,6 +94,29 @@ export const ChartTypeItem = ({
       <span className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 bg-popover hover:bg-popover/80 whitespace-nowrap">
         {label}
       </span>
+    </SelectItem>
+  );
+};
+
+export const ColumnSelectItem = ({
+  column,
+  label,
+  dataType,
+}: {
+  column: string;
+  label?: string;
+  dataType: DataType;
+}) => {
+  const { Icon, color } = getDataTypeMetadata(dataType);
+  return (
+    <SelectItem value={column}>
+      <Icon
+        className={cn("size-4 p-0.5 rounded-[3px]", color)}
+        stroke={"black"}
+        strokeOpacity={0.8}
+        strokeWidth={2}
+      />
+      {label ?? column}
     </SelectItem>
   );
 };
