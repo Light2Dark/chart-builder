@@ -136,6 +136,7 @@ export async function loadTable(
       fileNameToLoad,
       new Uint8Array(fileBuffer),
     );
+    return;
   }
 
   switch (fileExtension) {

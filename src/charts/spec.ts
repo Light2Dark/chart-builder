@@ -10,6 +10,9 @@ import {
   axisX,
   rectY,
   axisY,
+  vconcat,
+  table,
+  vspace,
 } from "@uwdata/vgplot";
 import type { ChartForm } from "./types";
 import { Logger, logNever } from "@/utils/logger";
@@ -18,6 +21,8 @@ import { getSimplifiedDataType, type TableSummary } from "./data";
 export const NULL_VALUE = "";
 export const COUNT_FIELD = "__count__";
 const COUNT_FIELD_LABEL = "Count of Records";
+const CHART_WIDTH = 700;
+const TABLE_HEIGHT = 300;
 
 // https://idl.uw.edu/mosaic/api/vgplot/marks.html
 // Mosaic documentation points to using Observable as a close reference point.
@@ -29,8 +34,14 @@ export function specChart(
 ): HTMLElement | null {
   let chart: HTMLElement | null = null;
 
+  const tableDisplay = table({
+    from: tableName,
+    height: TABLE_HEIGHT,
+    width: CHART_WIDTH,
+  });
+
   if (!formValues.x || !formValues.y) {
-    return null;
+    return tableDisplay;
   }
 
   const xColumn = data.columns.get(formValues.x);
@@ -39,13 +50,13 @@ export function specChart(
 
   if (!xColumn || !yColumn) {
     Logger.error("X or Y column's data is not found");
-    return null;
+    return tableDisplay;
   }
 
   // Important for default values to be applied first,
   // Some values like grid lines, if applied after the chart, will overlay it
   const defaultValues = [
-    width(700),
+    width(CHART_WIDTH),
     gridX(),
     gridY(),
     axisY({
@@ -58,15 +69,13 @@ export function specChart(
     }),
   ];
 
-  // https://observablehq.com/plot/features/marks#mark-options
-  // https://github.com/uwdata/mosaic/blob/3353220cc43ac9f5a8dfdba8ea9cf96cf38e8173/packages/vgplot/spec/src/spec/marks/Marks.ts#L432
+  const xDataType = getSimplifiedDataType(xColumn.dataType);
+
   const markValues: Record<string, unknown> = {
     x: formValues.x,
     y: formValues.y === COUNT_FIELD ? count() : formValues.y,
     tip: true,
   };
-
-  const xDataType = getSimplifiedDataType(xColumn.dataType);
 
   const args = [from(tableName)];
   switch (formValues.chartType) {
@@ -92,6 +101,8 @@ export function specChart(
     default:
       logNever(formValues.chartType);
   }
+
+  chart = vconcat(chart, vspace(25), tableDisplay);
 
   return chart;
 }

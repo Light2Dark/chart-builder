@@ -1,0 +1,69 @@
+table {
+  display: table;
+  font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
+  max-width: initial;
+  min-height: 33px;
+  width: 100%;
+  font-size: 13px;
+  line-height: 15.6px;
+}
+
+th {
+  color: #111;
+  text-align: left;
+  vertical-align: bottom;
+}
+
+td,
+th {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  padding: 3px 6.5px 3px 0;
+}
+
+thead tr th {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  cursor: pointer;
+  border-bottom: solid 1px #ccc;
+}
+
+.dark thead tr th {
+  background: rgb(30, 30, 32);
+  border-bottom: solid 1px #444;
+}
+
+tbody tr:hover {
+  background: #eef;
+}
+
+.dark tbody tr:hover {
+  background: #224;
+}
+
+.dark td,
+.dark th {
+  color: #ccc;
+}
+
+tbody tr:first-child td {
+  padding-top: 4px;
+}
+
+td,
+tr:not(:last-child) th {
+  border-bottom: solid 1px #eee;
+}
+
+.dark td,
+.dark tr:not(:last-child) th {
+  border-bottom: solid 1px #333;
+}
+
+td {
+  color: #444;
+  vertical-align: top;
+}

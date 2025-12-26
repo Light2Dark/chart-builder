@@ -493,10 +493,6 @@ const Chart = ({
   useEffect(() => {
     let chart: HTMLElement | null = null;
 
-    if (!formValues.x || !formValues.y) {
-      return;
-    }
-
     try {
       chart = specChart(formValues, tableName, data);
     } catch (error) {
@@ -514,7 +510,12 @@ const Chart = ({
   }, [tableName, formValues, data]);
 
   if (!isXAndYDefined) {
-    return <EmptyChart message="Please select an X and Y axis" />;
+    return (
+      <div>
+        <EmptyChart message="Please select an X and Y axis" />
+        <div ref={chartContainerRef} />
+      </div>
+    );
   }
 
   return <div ref={chartContainerRef} />;
