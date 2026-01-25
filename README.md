@@ -1,5 +1,9 @@
 # Chart Builder
 
+> [!WARNING]
+> This project is not currently in active development, may be revisited in the future. I found it hard to create Mosaic-compliant specs for different chart configurations. It is not as documented as Vega.
+
+
 Build charts on top of mosaic.
 
 Website is a prototype, does not have full functionality.
